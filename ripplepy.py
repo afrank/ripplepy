@@ -4,8 +4,19 @@ import urllib.parse
 import urllib.request
 import websocket
 import enum
+import sys
 import time
-import socket
+
+class RippleLog:
+    def __init__(self, connectionString=str(), activity=str(), remoteIP=str(), connectTime=0.0, disconnectTime=0.0,
+             activityTime=0.0, exception=list()):
+        self._connectionString = connectionString
+        self._activity = activity
+        self._remoteIP = remoteIP
+        self._connectTime = connectTime
+        self._disconnectTime = disconnectTime
+        self._activityTime = activityTime
+        self._exception = list(exception)
 
 class Ripple:
     class ConnectionType(enum.Enum):
@@ -14,40 +25,63 @@ class Ripple:
         websocket = 2
 
     _connectionType = ConnectionType.none
+    _connectionString = str()
+    _timeout = 0
+    _no_ssl_verify = False
     _parsedUrl = None
     _ws = websocket.WebSocket
 #    _rpc = urllib.request.urlopen
-    _remoteIp = None
     _timeout = None
+    _isConnected = False
+    _log = None
 
-    def __init__(self, connectionString, timeout=None):
+    def __init__(self, connectionString, timeout=None, no_ssl_verify=False):
+        self._connectionString = connectionString
         self._timeout = timeout
-        self._parsedUrl = urllib.parse.urlparse(connectionString)
-        r = urllib.parse.urlparse(connectionString)
-        p = list(r)
-        self._remoteIp = socket.gethostbyname(r.hostname)
-        p[1] = self._remoteIp
-        if r.port is not None:
-            p[1] += ':' + str(r.port)
+        self._no_ssl_verify = no_ssl_verify
 
-        if self._parsedUrl.scheme == 'http' or self._parsedUrl.scheme == 'https':
+        parsedUrl = urllib.parse.urlparse(self._connectionString)
+
+        if parsedUrl.scheme == 'http' or parsedUrl.scheme == 'https':
             self._connectionType = Ripple.ConnectionType.rpc
-        elif self._parsedUrl.scheme == 'ws' or self._parsedUrl.scheme == 'wss':
+        elif parsedUrl.scheme == 'ws' or parsedUrl.scheme == 'wss':
             self._connectionType = Ripple.ConnectionType.websocket
 
-        self.connectRippled()
+        self._log = RippleLog(self._connectionString)
 
     def connectRippled(self):
-        self._remoteIp = socket.gethostbyname(self._parsedUrl.hostname)
-        r = list(self._parsedUrl)
-        r[1] = self._remoteIp
-        if self._parsedUrl.port is not None:
-            r[1] += ':' + str(self._parsedUrl.port)
-
         if self._connectionType == Ripple.ConnectionType.websocket:
-#            self._ws = websocket.create_connection(urllib.parse.urlunparse(r), self._timeout)
-            self._ws = websocket.create_connection(urllib.parse.urlunparse(self._parsedUrl), self._timeout)
+            if self._isConnected:
+                self.disconnectRippled()
 
+            remote_ip = dict()
 
-    def getRemoteIp(self):
-        return self._remoteIp
+            try:
+                self._ws = websocket.create_connection(self._connectionString, self._timeout, remote_ip=remote_ip,
+                                                       no_ssl_verify=self._no_ssl_verify)
+                self._isConnected = True
+            except:
+                self._log._exception = list(sys.exc_info())
+            finally:
+                self._log._activity = "connect"
+                self._log._remoteIP = remote_ip["remote_ip"]
+                self._log._connectTime = time.time()
+
+        return self._isConnected
+
+    def getRemoteIP(self):
+        return self._log._remoteIP
+
+    def getIsConnected(self):
+        return self._isConnected
+
+    def disconnectRippled(self):
+        if self._connectionType == Ripple.ConnectionType.websocket:
+            try:
+                self._ws.close()
+            except:
+                self._log._exception = list(sys.exc_info())
+
+            self._isConnected = False
+            self._log._activity = "disconnect"
+            self._log._disconnectTime = time.time()
