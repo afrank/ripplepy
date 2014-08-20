@@ -89,7 +89,7 @@ class Ripple:
             self._log._activity = "disconnect"
             self._log._disconnectTime = time.time()
 
-    def command(self, command, params=None, id=None):
+    def command(self, command, activity=None, params=None, id=None):
         input = { "method" : str(command) }
         if id is not None:
             input["id"] = id
@@ -98,11 +98,16 @@ class Ripple:
 
         if self._connectionType == Ripple.ConnectionType.rpc:
             try:
+                self._log._connectTime = time.time()
                 reply = urllib.request.urlopen(self._connectionString, json.dumps(input).encode(),timeout=self._timeout)
                 output = json.loads(reply.read().decode())
+                self._log._exception = list()
             except:
                 self._log._exception = list(sys.exc_info())
                 output = None
+            finally:
+                self._log._disconnectTime = time.time()
+                self._log._activity = activity
 
             return output
 
