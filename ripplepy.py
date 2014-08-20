@@ -6,6 +6,7 @@ import websocket
 import enum
 import sys
 import time
+import json
 
 class RippleLog:
     def __init__(self, connectionString=str(), activity=str(), remoteIP=str(), connectTime=0.0, disconnectTime=0.0,
@@ -60,6 +61,7 @@ class Ripple:
                 self._ws = websocket.create_connection(self._connectionString, self._timeout, remote_ip=remote_ip,
                                                        no_ssl_verify=self._no_ssl_verify)
                 self._isConnected = True
+                self._log._exception = list()
             except:
                 self._log._exception = list(sys.exc_info())
             finally:
@@ -79,9 +81,30 @@ class Ripple:
         if self._connectionType == Ripple.ConnectionType.websocket:
             try:
                 self._ws.close()
+                self._log._exception = list()
             except:
                 self._log._exception = list(sys.exc_info())
 
             self._isConnected = False
             self._log._activity = "disconnect"
             self._log._disconnectTime = time.time()
+
+    def command(self, command, params=None, id=None):
+        input = { "method" : str(command) }
+        if id is not None:
+            input["id"] = id
+        if params is not None:
+            input["params"] = params
+
+        if self._connectionType == Ripple.ConnectionType.rpc:
+            try:
+                reply = urllib.request.urlopen(self._connectionString, json.dumps(input).encode(),timeout=self._timeout)
+                output = json.loads(reply.read().decode())
+            except:
+                self._log._exception = list(sys.exc_info())
+                output = None
+
+            return output
+
+    def cmd_server_info(self):
+        return self.command("server_info")
