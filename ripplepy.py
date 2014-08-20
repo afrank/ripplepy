@@ -111,5 +111,5 @@ class Ripple:
 
             return output
 
-    def cmd_server_info(self, activity="server_info"):
-        return self.command("server_info")
+    def cmd_server_info(self):
+        return self.command("server_info", activity="server_info")
