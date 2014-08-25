@@ -8,6 +8,8 @@ import sys
 import time
 import json
 import ssl
+import http.client
+import socket
 
 class Ripple:
     class ConnectionType(enum.Enum):
@@ -21,7 +23,7 @@ class Ripple:
     _no_ssl_verify = False
     _parsedUrl = None
     _ws = websocket.WebSocket
-#    _rpc = urllib.request.urlopen
+    _rpc = http.client
     _timeout = None
     _isConnected = False
     # log keys: connectionString, activity, remoteIP, connectTime, disconnectTime
@@ -35,18 +37,32 @@ class Ripple:
         self._log = dict()
         self._log["connectionString"] = connectionString
 
-        parsedUrl = urllib.parse.urlparse(self._connectionString)
+        self._parsedUrl = urllib.parse.urlparse(self._connectionString)
 
-        if parsedUrl.scheme == 'http' or parsedUrl.scheme == 'https':
+        if self._parsedUrl.scheme == 'http' or self._parsedUrl.scheme == 'https':
             self._connectionType = Ripple.ConnectionType.rpc
-        elif parsedUrl.scheme == 'ws' or parsedUrl.scheme == 'wss':
+            socket.setdefaulttimeout(self._timeout)
+        elif self._parsedUrl.scheme == 'ws' or self._parsedUrl.scheme == 'wss':
             self._connectionType = Ripple.ConnectionType.websocket
+        else:
+            raise Exception("Bad URL Scheme", self._parsedUrl.scheme)
 
-    def connectRippled(self):
-        if self._connectionType == Ripple.ConnectionType.websocket:
-            if self._isConnected:
-                self.disconnectRippled()
+    def connect(self):
+        if self._isConnected:
+            self.disconnect()
 
+        # http.client does not actually connect the socket until a request is sent
+        if self._connectionType == Ripple.ConnectionType.rpc:
+            if self._parsedUrl.scheme == "https":
+                context = ssl.create_default_context()
+                self._rpc = http.client.HTTPSConnection(self._parsedUrl.netloc, timeout=self._timeout,
+                                                            context=context)
+            elif self._parsedUrl.scheme == "http":
+                self._rpc = http.client.HTTPConnection(self._parsedUrl.netloc, timeout=self._timeout)
+
+            self._isConnected = True
+
+        elif self._connectionType == Ripple.ConnectionType.websocket:
             try:
                 if self._no_ssl_verify:
                     self._ws = websocket.create_connection(self._connectionString, self._timeout,
@@ -75,18 +91,21 @@ class Ripple:
     def getIsConnected(self):
         return self._isConnected
 
-    def disconnectRippled(self):
-        if self._connectionType == Ripple.ConnectionType.websocket:
+    def disconnect(self):
+        if self._connectionType == Ripple.ConnectionType.rpc:
+            try:
+                self._rpc.close()
+            except:
+                pass
+        elif self._connectionType == Ripple.ConnectionType.websocket:
             try:
                 self._ws.close()
-                if "exception" in self._log:
-                    del self._log["exception"]
             except:
-                self._log["exception"] = sys.exc_info()
+                pass
 
-            self._isConnected = False
-            self._log["activity"] = "disconnect"
-            self._log["disconnectTime"] = time.time()
+        self._isConnected = False
+        self._log["activity"] = "disconnect"
+        self._log["disconnectTime"] = time.time()
 
     def command(self, command, activity=None, params=None, id=None):
         input = { "method" : str(command) }
@@ -113,3 +132,10 @@ class Ripple:
 
     def cmd_server_info(self):
         return self.command("server_info", activity="server_info")
+
+    def cmd_ledger(self, seq, full=False, accounts=False, transactions=False, expand=False):
+        params = list()
+        params.append({"full" : full, "accounts" : accounts, "transactions" : transactions, "expand" : expand})
+        params[0]["ledger"] = seq
+
+        return self.command("ledger", activity="ledger," + str(seq), params=params)
