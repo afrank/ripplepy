@@ -133,9 +133,9 @@ class Ripple:
     def cmd_server_info(self):
         return self.command("server_info", activity="server_info")
 
-    def cmd_ledger(self, seq, full=False, accounts=False, transactions=False, expand=False):
+    def cmd_ledger(self, ledger, full=False, accounts=False, transactions=False, expand=False):
         params = list()
         params.append({"full" : full, "accounts" : accounts, "transactions" : transactions, "expand" : expand})
-        params[0]["ledger"] = seq
+        params[0]["ledger"] = ledger
 
-        return self.command("ledger", activity="ledger," + str(seq), params=params)
+        return self.command("ledger", activity="ledger," + str(ledger), params=params)
