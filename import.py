@@ -30,18 +30,19 @@ def storeTransaction(pgcursor, ledgers, transaction):
     sql = "INSERT INTO LEDGER_TRANSACTIONS VALUES (%s, %s, %s);"
     pgcursor.execute(sql, (t["id"], ledgers["id"], t["Sequence"]))
 
+
     print("TRANSACTION: ")
     print(t)
 
-    if t["Account"] is not None:
-        sql = "INSERT INTO ACCOUNTS (address) VALUES (%s);"
-        pgcursor.execute(sql, (t["Account"],) )
-        pgcursor.execute("SELECT currval(pg_get_serial_sequence('ACCOUNTS', 'id'));")
-        account_id = pgcursor.fetchone()[0]
-        print(account_id)
-
-        sql = "INSERT INTO ACCOUNT_TRANSACTIONS VALUES (%s, %s, %s, %s);"
-        pgcursor.execute(sql, (t["id"], account_id, ledgers["seqNum"], t["Sequence"]))
+#    if t["Account"] is not None:
+#        sql = "INSERT INTO ACCOUNTS (address) VALUES (%s);"
+#        pgcursor.execute(sql, (t["Account"],) )
+#        pgcursor.execute("SELECT currval(pg_get_serial_sequence('ACCOUNTS', 'id'));")
+#        account_id = pgcursor.fetchone()[0]
+#        print(account_id)
+#
+#        sql = "INSERT INTO ACCOUNT_TRANSACTIONS VALUES (%s, %s, %s, %s);"
+#        pgcursor.execute(sql, (t["id"], account_id, ledgers["seqNum"], t["Sequence"]))
 
 def storeLedger(pgconn, ledger):
     if "result" not in ledger:
@@ -80,6 +81,7 @@ def storeLedger(pgconn, ledger):
         storeTransaction(pgcursor, ledgers, transaction)
 
     pgcursor.execute("COMMIT;")
+    pgcursor.close()
 
 # main
 argparser = argparse.ArgumentParser()
