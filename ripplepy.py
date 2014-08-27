@@ -55,8 +55,7 @@ class Ripple:
         if self._connectionType == Ripple.ConnectionType.rpc:
             if self._parsedUrl.scheme == "https":
                 context = ssl.create_default_context()
-                self._rpc = http.client.HTTPSConnection(self._parsedUrl.netloc, timeout=self._timeout,
-                                                            context=context)
+                self._rpc = http.client.HTTPSConnection(self._parsedUrl.netloc, timeout=self._timeout,context=context)
             elif self._parsedUrl.scheme == "http":
                 self._rpc = http.client.HTTPConnection(self._parsedUrl.netloc, timeout=self._timeout)
 
@@ -117,7 +116,8 @@ class Ripple:
         if self._connectionType == Ripple.ConnectionType.rpc:
             try:
                 self._log["connectTime"] = time.time()
-                reply = urllib.request.urlopen(self._connectionString, json.dumps(input).encode(),timeout=self._timeout)
+                self._rpc.request("GET","/",json.dumps(input).encode())
+                reply = self._rpc.getresponse()
                 output = json.loads(reply.read().decode())
                 if "exception" in self._log:
                     del self._log["exception"]
