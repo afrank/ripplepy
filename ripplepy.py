@@ -125,7 +125,7 @@ class Ripple:
         if self._connectionType == Ripple.ConnectionType.rpc:
             try:
                 self._log["connectTime"] = time.time()
-                self._rpc.request("GET","/",json.dumps(input).encode())
+                self._rpc.request("GET", "/", json.dumps(input).encode())
                 reply = self._rpc.getresponse()
                 output = json.loads(reply.read().decode())
                 if "exception" in self._log:
