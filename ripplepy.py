@@ -23,10 +23,17 @@ except ImportError:
 
 
 def get_hash(data):
-    return hashlib.sha512(data).digest()[:32]
+    return hashlib.sha512(data[9:]).digest()[:32]
 
 
 def hash_integrity(hashval, data):
+    if type(hashval) is bytes:
+        pass
+    elif type(hashval) is str:
+        hashval = Uint256(hashval).data()
+    else:
+        raise ValueError('bad hash format')
+
     return hashval == get_hash(data)
 
 
