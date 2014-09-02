@@ -10,6 +10,8 @@ import json
 import ssl
 import http.client
 import socket
+import string
+import binascii
 
 
 class Ripple:
@@ -151,3 +153,31 @@ class Ripple:
 
         return self.command("ledger", activity="ledger," + str(ledger),
                             params=params)
+
+
+class Uint256:
+    def __init__(self, arg=""):
+        if len(arg) == 32:
+            self._data = bytes(arg)
+        elif len(arg) == 64 and all(c in string.hexdigits for c in arg):
+            self._data = bytes(binascii.unhexlify(arg))
+        elif len(arg) == 0:
+            data = bytearray()
+            for i in range(0, 32):
+                data += b"\x00"
+            self._data = bytes(data)
+        else:
+            raise ValueError('not valid uint256 input')
+
+    def data(self):
+        return self._data
+
+    def hexstr(self):
+        hstr = str()
+        for i in self._data:
+            hstr += ("%x" % i).upper()
+
+        return hstr
+
+    def is_zero(self):
+        return all(b in b'\x00' for b in self._data)
