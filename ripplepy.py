@@ -13,9 +13,13 @@ import socket
 import string
 import binascii
 import sqlite3
-import rocksdb
 import os
 import hashlib
+try:
+    import rocksdb
+except ImportError:
+    print(sys.exc_info())
+    print("Functions that require RocksDB will not work.")
 
 
 def get_hash(data):
