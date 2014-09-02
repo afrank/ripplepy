@@ -12,6 +12,9 @@ import http.client
 import socket
 import string
 import binascii
+import sqlite3
+import rocksdb
+import os
 
 
 class Ripple:
@@ -181,3 +184,13 @@ class Uint256:
 
     def is_zero(self):
         return all(b in b'\x00' for b in self._data)
+
+
+class RipDb:
+    def __init__(self, dbdir, ledger="ledger.db", nodestore="hashnode"):
+        self._sqldb = sqlite3.connect(os.path.join(dbdir, ledger) + "?mode=ro",
+                                      uri=True)
+        opts = rocksdb.Options()
+        opts.create_if_missing = False
+        opts.compression = rocksdb.CompressionType.snappy_compression
+        self._nodedb = rocksdb.DB(os.path.join(dbdir, nodestore), opts)
