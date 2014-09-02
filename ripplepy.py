@@ -15,6 +15,15 @@ import binascii
 import sqlite3
 import rocksdb
 import os
+import hashlib
+
+
+def get_hash(data):
+    return hashlib.sha512(data).digest()[:32]
+
+
+def hash_integrity(hashval, data):
+    return hashval == get_hash(data)
 
 
 class Ripple:
@@ -196,59 +205,53 @@ class RipDb:
         opts.compression = rocksdb.CompressionType.snappy_compression
         self._nodedb = rocksdb.DB(os.path.join(dbdir, nodestore), opts)
 
-    def get_hash(self, ledger):
-        sql = str()
+    def get_ledger_record(self, ledger):
         cur = self._ledgerdb.cursor()
         if type(ledger) is bytes:
-            sql = "SELECT LedgerHash FROM Ledgers WHERE LedgerHash=?"
+            sql = "SELECT * FROM Ledgers WHERE LedgerHash=?"
             cur.execute(sql, (Uint256(ledger).hexstr(),))
-        elif type(ledger) is int:
-            sql = "SELECT LedgerHash FROM Ledgers WHERE LedgerSeq=?"
-            cur.execute(sql, (ledger,))
         elif type(ledger) is str:
-            sql = "SELECT LedgerHash FROM Ledgers WHERE LedgerHash=?"
+            sql = "SELECT * FROM Ledgers WHERE LedgerHash=?"
+            cur.execute(sql, (ledger,))
+        elif type(ledger) is int:
+            sql = "SELECT * FROM Ledgers WHERE LedgerSeq=?"
             cur.execute(sql, (ledger,))
         else:
-            raise ValueError('must be bytestring or string or integer')
+            raise ValueError('bad ledger lookup value')
 
         res = cur.fetchone()
         if res is not None:
-            return Uint256(res[0]).data()
+            rec = dict()
+            rec["LedgerHash"] = res[0]
+            rec["LedgerSeq"] = res[1]
+            rec["PrevHash"] = res[2]
+            rec["TotalCoins"] = res[3]
+            rec["ClosingTime"] = res[4]
+            rec["PrevClosingTime"] = res[5]
+            rec["CloseTimeRes"] = res[6]
+            rec["CloseFlags"] = res[7]
+            rec["AccountSetHash"] = res[8]
+            rec["TransSetHash"] = res[9]
+
+            return rec
+
+    def get_hash(self, ledger):
+        return self.get_ledger_record(ledger)["LedgerHash"]
 
     def get_parent_hash(self, ledger):
-        sql = str()
-        cur = self._ledgerdb.cursor()
-        if type(ledger) is bytes:
-            sql = "SELECT PrevHash FROM Ledgers WHERE LedgerHash=?"
-            cur.execute(sql, (Uint256(ledger).hexstr(),))
-        elif type(ledger) is int:
-            sql = "SELECT PrevHash FROM Ledgers WHERE LedgerSeq=?"
-            cur.execute(sql, (ledger,))
-        elif type(ledger) is str:
-            sql = "SELECT PrevHash FROM Ledgers WHERE LedgerHash=?"
-            cur.execute(sql, (ledger,))
-        else:
-            raise ValueError('must be bytestring or string or integer')
-
-        res = cur.fetchone()
-        if res is not None:
-            return Uint256(res[0]).data()
+        return self.get_ledger_record(ledger)["PrevHash"]
 
     def get_seq(self, ledger):
-        sql = str()
-        cur = self._ledgerdb.cursor()
-        if type(ledger) is bytes:
-            sql = "SELECT LedgerSeq FROM Ledgers WHERE LedgerHash=?"
-            cur.execute(sql, (Uint256(ledger).hexstr(),))
-        elif type(ledger) is int:
-            sql = "SELECT LedgerSeq FROM Ledgers WHERE LedgerSeq=?"
-            cur.execute(sql, (ledger,))
-        elif type(ledger) is str:
-            sql = "SELECT LedgerSeq FROM Ledgers WHERE LedgerHash=?"
-            cur.execute(sql, (ledger,))
-        else:
-            raise ValueError('must be bytestring or string or integer')
+        return self.get_ledger_record(ledger)["LedgerSeq"]
 
-        res = cur.fetchone()
-        if res is not None:
-            return res[0]
+    def get_node(self, keyarg):
+        key = None
+        if type(keyarg) is bytes:
+            key = keyarg
+        elif type(keyarg) is str:
+            key = Uint256(keyarg).data()
+            pass
+        else:
+            raise ValueError('bad key value')
+
+        return self._nodedb.get(key)
