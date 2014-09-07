@@ -139,12 +139,14 @@ class Ripple:
         self._log["activity"] = "disconnect"
         self._log["disconnectTime"] = time.time()
 
-    def command(self, command, activity=None, params=None, id_arg=None):
+    def command(self, command, activity=None, params=None, id_arg=None, subcommand=None):
         indata = {"method": str(command)}
         if id_arg is not None:
             indata["id"] = id_arg
         if params is not None:
             indata["params"] = params
+        if subcommand is not None:
+            indata["subcommand"] = subcommand
 
         output = None
         if self._connectionType == Ripple.ConnectionType.rpc:
